@@ -1,0 +1,98 @@
+# Postgres + pgvector for the SMB tier.
+# Single primary with WAL archiving to the backup bucket.
+# For HA Postgres, swap this in `enterprise/` for CloudNativePG.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: pg
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          env:
+            - name: POSTGRES_USER
+              value: clawfirm
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+            - name: POSTGRES_DB
+              value: clawfirm
+            - name: POSTGRES_INITDB_ARGS
+              value: "--auth-host=scram-sha-256"
+          ports:
+            - containerPort: 5432
+              name: pg
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "clawfirm"]
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 4
+              memory: 8Gi
+      volumes:
+        - name: initdb
+          configMap:
+            name: postgres-initdb
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 100Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-initdb
+data:
+  01-databases.sql: |
+    CREATE DATABASE authentik;
+    CREATE DATABASE dify;
+    CREATE DATABASE dify_vec;
+    CREATE DATABASE n8n;
+    CREATE DATABASE langgraph;
+    CREATE DATABASE langfuse;
+    CREATE DATABASE clawrails;
+    CREATE DATABASE memory;
+    \c memory
+    CREATE EXTENSION IF NOT EXISTS vector;
+    \c dify_vec
+    CREATE EXTENSION IF NOT EXISTS vector;

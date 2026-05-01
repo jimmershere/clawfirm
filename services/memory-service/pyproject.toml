@@ -1,0 +1,25 @@
+[project]
+name = "clawfirm-memory-service"
+version = "0.1.0"
+description = "ClawFirm event-sourced hierarchical + RAG memory service"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "grpcio>=1.66",
+  "grpcio-tools>=1.66",
+  "pydantic>=2.9",
+  "psycopg[binary]>=3.2",
+  "pgvector>=0.3",
+  "qdrant-client>=1.12",
+  "lancedb>=0.13",
+  "sentence-transformers>=3.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.7", "black>=24"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,19 @@
+# ClawFirm Solo tier seed — consumed by clawboot's first-boot script.
+version: 1
+tier: solo
+profile: default
+governance:
+  default_tier: 0           # chat-only at first boot
+  panic_hotkey_enabled: true
+inference:
+  ollama_enabled: true
+  vllm_enabled: false
+  default_models:
+    - qwen3.5-4b
+sandbox: difysandbox+rootless
+network:
+  bind_address: 127.0.0.1
+  overlay_provider: none    # operator runs `clawfirm net enable` later if desired
+skills:
+  registry_url: https://registry.clawfirm.io
+  require_signature: true

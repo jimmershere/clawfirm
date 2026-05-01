@@ -1,0 +1,36 @@
+{
+  "key": "clawfirm-smb",
+  "name": "ClawFirm SMB defaults",
+  "description": "Tier 1 smart-approval base. Block all egress except allowlisted model providers. Require approval for any tool tagged write=true.",
+  "rules": [
+    {
+      "name": "Auto-approve safe tools at Tier 1",
+      "pattern": "tags=safe",
+      "action": "allow",
+      "priority": 700,
+      "enabled": true
+    },
+    {
+      "name": "Require approval for write tools",
+      "pattern": "tags=write",
+      "action": "require_approval",
+      "priority": 800,
+      "enabled": true
+    },
+    {
+      "name": "Default-deny egress",
+      "pattern": "tags=egress",
+      "match": "host NOT IN frontier_allow_list",
+      "action": "block",
+      "priority": 900,
+      "enabled": true
+    },
+    {
+      "name": "Block known dangerous patterns",
+      "pattern": "shell.exec ssh root@",
+      "action": "block",
+      "priority": 950,
+      "enabled": true
+    }
+  ]
+}

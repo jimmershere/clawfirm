@@ -1,0 +1,43 @@
+{
+  "key": "clawfirm-enterprise",
+  "name": "ClawFirm Enterprise defaults",
+  "description": "Tier 1 base with Tier 2 enforced for any tool tagged write=true or egress=true. Tier 3 only via signed change-control ticket.",
+  "rules": [
+    {
+      "name": "Auto-approve safe tools at Tier 1+",
+      "pattern": "tags=safe",
+      "action": "allow",
+      "priority": 700,
+      "enabled": true
+    },
+    {
+      "name": "Force Tier 2 manual approval for write tools",
+      "pattern": "tags=write",
+      "action": "require_approval",
+      "priority": 850,
+      "enabled": true
+    },
+    {
+      "name": "Force Tier 2 manual approval for egress tools",
+      "pattern": "tags=egress",
+      "action": "require_approval",
+      "priority": 850,
+      "enabled": true
+    },
+    {
+      "name": "Tier 3 requires signed change-control ticket",
+      "pattern": "governance.tier == 3",
+      "match": "ticket.signature.verified == false",
+      "action": "block",
+      "priority": 1000,
+      "enabled": true
+    },
+    {
+      "name": "Two-person rule for production write",
+      "pattern": "tags=write AND env=production",
+      "action": "require_approval_count_2",
+      "priority": 950,
+      "enabled": true
+    }
+  ]
+}

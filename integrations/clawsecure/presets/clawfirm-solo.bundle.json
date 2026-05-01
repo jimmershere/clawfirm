@@ -1,0 +1,39 @@
+{
+  "key": "clawfirm-solo",
+  "name": "ClawFirm Solo defaults",
+  "description": "Tier 0 (chat-only) at first run; safe Tier 1 promotions whitelisted.",
+  "rules": [
+    {
+      "name": "Block all tool calls at Tier 0",
+      "pattern": "tool.*",
+      "match": "governance.tier == 0",
+      "action": "block",
+      "priority": 1000,
+      "enabled": true
+    },
+    {
+      "name": "Allow web search at Tier 1+",
+      "pattern": "web.search",
+      "match": "governance.tier >= 1",
+      "action": "allow",
+      "priority": 500,
+      "enabled": true
+    },
+    {
+      "name": "Allow read-only filesystem at Tier 1+",
+      "pattern": "fs.read",
+      "match": "governance.tier >= 1",
+      "action": "allow",
+      "priority": 500,
+      "enabled": true
+    },
+    {
+      "name": "Block frontier egress unless explicit policy permit",
+      "pattern": "frontier_egress",
+      "match": "true",
+      "action": "block",
+      "priority": 900,
+      "enabled": true
+    }
+  ]
+}

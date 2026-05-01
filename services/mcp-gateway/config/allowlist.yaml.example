@@ -1,0 +1,77 @@
+# ClawFirm MCP Gateway allowlist - example configuration.
+#
+# Copy to allowlist.yaml and edit. Keep this file under version control.
+# Audit-log every change; the active config is stamped into every recorded event.
+
+version: 1
+
+# ----- Tool rules -----
+# Each tool gets a name, allow/deny, the minimum governance tier required,
+# and tags that the policy-judge uses to auto-approve / prompt.
+tools:
+  - name: fs.read
+    allowed: true
+    require_governance_tier: 1
+    tags: [safe, read]
+
+  - name: fs.write
+    allowed: true
+    require_governance_tier: 2
+    tags: [risky, write]
+
+  - name: shell.exec
+    allowed: true
+    require_governance_tier: 2
+    tags: [dangerous, write]
+
+  - name: web.search
+    allowed: true
+    require_governance_tier: 1
+    tags: [safe, egress]
+
+  - name: web.fetch
+    allowed: true
+    require_governance_tier: 1
+    tags: [risky, egress]
+
+  - name: git.diff
+    allowed: true
+    require_governance_tier: 1
+    tags: [safe, read]
+
+  - name: git.push
+    allowed: true
+    require_governance_tier: 2
+    tags: [dangerous, write, egress]
+
+  - name: db.query
+    allowed: true
+    require_governance_tier: 1
+    tags: [safe, read]
+
+  - name: db.write
+    allowed: false   # explicitly off until policy reviewed
+    require_governance_tier: 3
+    tags: [dangerous, write]
+
+# ----- Per-agent rules -----
+# Override per-identity what tools are reachable and what budget applies.
+agents:
+  - identity: ops@acme
+    tools: ["fs.read", "fs.write", "shell.exec", "web.search", "git.diff", "git.push", "db.query"]
+    max_budget_usd_per_day: 25
+
+  - identity: analyst@acme
+    tools: ["fs.read", "web.search", "web.fetch", "db.query"]
+    max_budget_usd_per_day: 5
+
+# ----- Per-tool egress rules -----
+# Tools tagged `egress` are restricted to specific hosts/ports.
+egress:
+  - tool: web.fetch
+    hosts: ["docs.acme.com", "*.wikipedia.org", "github.com"]
+    ports: [443]
+
+  - tool: git.push
+    hosts: ["github.com", "git.acme.internal"]
+    ports: [22, 443]

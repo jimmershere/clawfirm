@@ -1,0 +1,10 @@
+# ClawBoot air-gap overlay.
+network:
+  overlay_provider: none    # no Headscale phone-home in air-gap
+skills:
+  registry_url: file:///opt/clawfirm/airgap/skills
+  require_signature: true   # signatures are still required; verified against local Rekor
+inference:
+  default_models:
+    # Models are loaded from the bundle, not from upstream registries.
+    - qwen3.5-4b

@@ -1,0 +1,94 @@
+# k0sctl topology for ClawFirm Enterprise tier.
+#
+# Copy to k0sctl.yaml and fill in your actual host details, then:
+#   k0sctl apply --config k0sctl.yaml
+#
+# This produces an HA k0s cluster (3 controllers, N workers, optional GPU nodes).
+# For air-gapped install, use the bundle-supplied k0s binary and image bundle
+# instead of letting k0sctl pull from the internet.
+
+apiVersion: k0sctl.k0sproject.io/v1beta1
+kind: Cluster
+metadata:
+  name: clawfirm-enterprise
+  user: clawfirm
+
+spec:
+  hosts:
+    # ----- Control plane (3 nodes for HA quorum) -----
+    - role: controller
+      ssh:
+        address: cp1.clawfirm.internal
+        user: ubuntu
+        keyPath: ~/.ssh/clawfirm_ed25519
+      installFlags:
+        - --enable-worker=false
+        - --no-taints
+
+    - role: controller
+      ssh: { address: cp2.clawfirm.internal, user: ubuntu, keyPath: ~/.ssh/clawfirm_ed25519 }
+      installFlags: [ --enable-worker=false, --no-taints ]
+
+    - role: controller
+      ssh: { address: cp3.clawfirm.internal, user: ubuntu, keyPath: ~/.ssh/clawfirm_ed25519 }
+      installFlags: [ --enable-worker=false, --no-taints ]
+
+    # ----- Workers (general-purpose) -----
+    - role: worker
+      ssh: { address: w1.clawfirm.internal, user: ubuntu, keyPath: ~/.ssh/clawfirm_ed25519 }
+
+    - role: worker
+      ssh: { address: w2.clawfirm.internal, user: ubuntu, keyPath: ~/.ssh/clawfirm_ed25519 }
+
+    # ----- GPU workers (labeled for inference scheduling) -----
+    - role: worker
+      ssh: { address: gpu1.clawfirm.internal, user: ubuntu, keyPath: ~/.ssh/clawfirm_ed25519 }
+      installFlags:
+        - --labels=clawfirm.io/inference=true,nvidia.com/gpu=true
+
+    - role: worker
+      ssh: { address: gpu2.clawfirm.internal, user: ubuntu, keyPath: ~/.ssh/clawfirm_ed25519 }
+      installFlags:
+        - --labels=clawfirm.io/inference=true,nvidia.com/gpu=true
+
+  k0s:
+    version: v1.35.0+k0s.0
+    config:
+      apiVersion: k0s.k0sproject.io/v1beta1
+      kind: ClusterConfig
+      metadata:
+        name: clawfirm
+      spec:
+        api:
+          # Externalize the K8s API endpoint for HA — typically a load balancer
+          # in front of the three controllers.
+          externalAddress: api.clawfirm.internal
+          sans: [api.clawfirm.internal]
+
+        storage:
+          type: etcd
+
+        network:
+          provider: calico
+          podCIDR: 10.244.0.0/16
+          serviceCIDR: 10.96.0.0/12
+
+        # Enable Kata Containers as a RuntimeClass, used by Tier 3 autonomous
+        # pods that need a hardware sandbox boundary.
+        workerProfiles:
+          - name: kata-firecracker
+            values:
+              cgroupDriver: systemd
+              # The actual Kata install is handled by a daemonset in the
+              # `kata` Flux Kustomization.
+
+        telemetry:
+          enabled: false
+
+        installConfig:
+          users:
+            etcdUser: etcd
+            kineUser: kube-apiserver
+            konnectivityUser: konnectivity-server
+            kubeAPIserverUser: kube-apiserver
+            kubeSchedulerUser: kube-scheduler

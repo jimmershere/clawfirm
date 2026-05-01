@@ -1,0 +1,20 @@
+# ClawFirm SMB tier seed.
+version: 1
+tier: smb
+profile: default
+governance:
+  default_tier: 1           # smart-approval
+  panic_hotkey_enabled: true
+inference:
+  ollama_enabled: true
+  vllm_enabled: true
+  default_models:
+    - qwen3.5-4b
+    - qwen3.6-27b-instruct
+sandbox: difysandbox+gvisor
+network:
+  bind_address: 0.0.0.0     # cluster-internal; ingress fronted by Caddy/Traefik
+  overlay_provider: headscale
+skills:
+  registry_url: https://registry.clawfirm.io
+  require_signature: true

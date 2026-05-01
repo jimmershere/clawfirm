@@ -1,0 +1,24 @@
+# ClawFirm Enterprise tier seed.
+#
+# First boot brings the host up to a "ready-to-join" state; actual
+# cluster bootstrap is a multi-host operation handled by k0sctl + Flux,
+# orchestrated by the operator after first boot completes.
+version: 1
+tier: enterprise
+profile: default            # use 'air-gap-fips' for FIPS environments
+governance:
+  default_tier: 1           # base; Tier 2 is enforced for write/egress via policy
+  panic_hotkey_enabled: true
+inference:
+  ollama_enabled: false     # enterprise prefers vLLM; ollama optional per-node
+  vllm_enabled: true
+  default_models:
+    - qwen3.5-4b
+    - llama-3.3-70b-q4
+sandbox: difysandbox+gvisor+firecracker
+network:
+  bind_address: 0.0.0.0
+  overlay_provider: headscale
+skills:
+  registry_url: https://registry.clawfirm.io
+  require_signature: true

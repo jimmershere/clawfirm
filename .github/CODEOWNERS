@@ -1,0 +1,10 @@
+# Default — all changes get reviewed by the project owner.
+*                       @jimmershere
+
+# Architecture decisions
+/docs/adr/              @jimmershere
+
+# Security-sensitive paths
+/SECURITY.md            @jimmershere
+/services/mcp-gateway/  @jimmershere
+/services/policy-judge/ @jimmershere

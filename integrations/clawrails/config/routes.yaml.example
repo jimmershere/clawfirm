@@ -1,0 +1,70 @@
+# ClawRails routing rules — example.
+#
+# Loaded by ClawRails on startup. Reload via: clawfirm secret rotate clawrails-routes.
+
+version: 1
+
+# Models registered with ClawRails. Each maps a logical name to a backend
+# endpoint and a cost model.
+models:
+  - name: local-small
+    backend: ollama
+    endpoint: http://ollama:11434
+    model: qwen3.5-4b
+    cost_per_million_in: 0
+    cost_per_million_out: 0
+
+  - name: local-medium
+    backend: ollama
+    endpoint: http://ollama:11434
+    model: qwen3-coder-30b-a3b
+    cost_per_million_in: 0
+    cost_per_million_out: 0
+
+  - name: local-large
+    backend: vllm
+    endpoint: http://vllm:8000/v1
+    model: Qwen/Qwen3.6-27B-Instruct
+    cost_per_million_in: 0
+    cost_per_million_out: 0
+
+  - name: frontier-claude
+    backend: openai-compat
+    endpoint: https://api.anthropic.com/v1
+    model: claude-opus-4-7
+    cost_per_million_in: 15
+    cost_per_million_out: 75
+    require_policy: frontier-egress
+
+# Routing rules — first match wins.
+rules:
+  - match:
+      sensitivity: secret
+    route: local-small             # never send secrets to a frontier API
+
+  - match:
+      sensitivity: pii
+    route: local-medium
+
+  - match:
+      complexity: trivial
+    route: local-small
+
+  - match:
+      complexity: standard
+    route: local-large
+
+  - match:
+      complexity: complex
+      sensitivity: public
+    route: frontier-claude         # only public+complex hits frontier
+
+  - match: { default: true }
+    route: local-large
+
+# Kill switches — referenced by ClawSecure rules. When a switch trips,
+# every call route that uses a frontier model returns 503.
+kill_switches:
+  daily_frontier_usd: 50
+  monthly_frontier_usd: 500
+  max_concurrent_frontier_requests: 8

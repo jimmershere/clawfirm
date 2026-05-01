@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "registry_url": "https://registry.clawfirm.io",
+  "skills": [
+    {
+      "name": "core/fs-read",
+      "version": "0.1.0",
+      "description": "Read-only filesystem access scoped to a workspace path.",
+      "tags": ["safe", "read"],
+      "min_governance_tier": 1,
+      "signature": "registry/signed/core-fs-read-0.1.0.sig",
+      "certificate": "registry/signed/core-fs-read-0.1.0.crt"
+    },
+    {
+      "name": "core/web-search",
+      "version": "0.1.0",
+      "description": "Allowlist-bounded web search via the configured search provider.",
+      "tags": ["safe", "egress"],
+      "min_governance_tier": 1,
+      "signature": "registry/signed/core-web-search-0.1.0.sig",
+      "certificate": "registry/signed/core-web-search-0.1.0.crt"
+    },
+    {
+      "name": "core/git-diff",
+      "version": "0.1.0",
+      "description": "Read-only git inspection (status, diff, log, show).",
+      "tags": ["safe", "read"],
+      "min_governance_tier": 1,
+      "signature": "registry/signed/core-git-diff-0.1.0.sig",
+      "certificate": "registry/signed/core-git-diff-0.1.0.crt"
+    }
+  ]
+}

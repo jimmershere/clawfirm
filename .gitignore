@@ -1,0 +1,69 @@
+# Build artifacts
+/bin/
+/dist/
+/build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.out
+vendor/
+go.work
+go.work.sum
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# ClawFirm runtime
+/var/
+/data/
+/state/
+/.clawfirm/
+clawfirm-airgap-bundle*.tar.zst
+*.crt
+*.sig
+*.pem
+!docs/**/*.pem.example
+
+# Docker
+.docker/
+
+# k8s
+kubeconfig
+*-kubeconfig
+
+# Logs
+*.log
+logs/
+
+.brv/

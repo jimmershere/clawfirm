@@ -1,0 +1,356 @@
+# ClawFirm Solo tier - single-node Docker Compose stack.
+#
+# Brought up by `clawfirm up` after `clawfirm init --tier solo`.
+# All services bind to 127.0.0.1 by default. Use `clawfirm net enable`
+# to expose via Tailscale.
+#
+# Override with deploy/solo/docker-compose.gpu.yml for NVIDIA GPU support.
+
+name: clawfirm
+
+networks:
+  clawfirm-internal:
+    driver: bridge
+    internal: false
+
+volumes:
+  postgres-data:
+  ollama-models:
+  openbao-data:
+  authentik-media:
+  authentik-templates:
+  langfuse-data:
+  clawsecure-data:
+  memory-events:
+  dify-storage:
+  n8n-data:
+
+services:
+  # ---------------------------------------------------------------------
+  # Shared state
+  # ---------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: clawfirm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: clawfirm
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    networks: [clawfirm-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clawfirm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    networks: [clawfirm-internal]
+
+  # ---------------------------------------------------------------------
+  # Secrets, identity, observability (control plane)
+  # ---------------------------------------------------------------------
+  openbao:
+    image: openbao/openbao:2.5
+    restart: unless-stopped
+    cap_add: ["IPC_LOCK"]
+    environment:
+      BAO_LOCAL_CONFIG: |
+        {
+          "storage": {"file": {"path": "/openbao/data"}},
+          "listener": {"tcp": {"address": "0.0.0.0:8200", "tls_disable": true}},
+          "ui": true,
+          "default_lease_ttl": "168h",
+          "max_lease_ttl": "720h"
+        }
+    command: ["server"]
+    volumes:
+      - openbao-data:/openbao/data
+    ports: ["127.0.0.1:8200:8200"]
+    networks: [clawfirm-internal]
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2026.4
+    restart: unless-stopped
+    command: server
+    environment: &authentik-env
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgres
+      AUTHENTIK_POSTGRESQL__USER: clawfirm
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD}
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+    volumes:
+      - authentik-media:/media
+      - authentik-templates:/templates
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9443:9443"]
+    networks: [clawfirm-internal]
+    depends_on: [postgres, redis]
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2026.4
+    restart: unless-stopped
+    command: worker
+    environment: *authentik-env
+    volumes:
+      - authentik-media:/media
+      - authentik-templates:/templates
+    networks: [clawfirm-internal]
+    depends_on: [postgres, redis]
+
+  langfuse:
+    image: langfuse/langfuse:3
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://clawfirm:${POSTGRES_PASSWORD}@postgres:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT: ${LANGFUSE_SALT}
+      TELEMETRY_ENABLED: "false"
+    volumes:
+      - langfuse-data:/data
+    ports: ["127.0.0.1:3000:3000"]
+    networks: [clawfirm-internal]
+    depends_on: [postgres]
+
+  # ---------------------------------------------------------------------
+  # ClawFirm services (this repo)
+  # ---------------------------------------------------------------------
+  mcp-gateway:
+    image: ghcr.io/clawfirm/mcp-gateway:${CLAWFIRM_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      MCP_GW_LISTEN: ":8443"
+      MCP_GW_CONFIG: /etc/mcp-gateway/allowlist.yaml
+      MCP_GW_AUDIT_SINK: http://clawsecure:3188/api/events
+      MCP_GW_OIDC_ISSUER: http://authentik-server:9000/application/o/clawfirm/
+    volumes:
+      - ../../services/mcp-gateway/config:/etc/mcp-gateway:ro
+    ports: ["127.0.0.1:8443:8443"]
+    networks: [clawfirm-internal]
+    depends_on: [authentik-server]
+
+  memory-service:
+    image: ghcr.io/clawfirm/memory-service:${CLAWFIRM_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      MEMORY_STORE: pgvector
+      MEMORY_PG_DSN: postgresql://clawfirm:${POSTGRES_PASSWORD}@postgres:5432/memory
+      MEMORY_EVENT_LOG: /var/lib/memory/events
+      MEMORY_HASH_CHAIN: "true"
+    volumes:
+      - memory-events:/var/lib/memory
+    networks: [clawfirm-internal]
+    depends_on: [postgres]
+
+  approval-shim:
+    image: ghcr.io/clawfirm/approval-shim:${CLAWFIRM_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SHIM_LISTEN: ":50051"
+      CLAWSECURE_URL: http://clawsecure:3188
+    networks: [clawfirm-internal]
+    depends_on: [clawsecure]
+
+  policy-judge:
+    image: ghcr.io/clawfirm/policy-judge:${CLAWFIRM_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      JUDGE_MODEL: qwen3.5-4b
+      JUDGE_BACKEND: ollama
+      OLLAMA_HOST: http://ollama:11434
+      JUDGE_CACHE_TTL: 300
+    networks: [clawfirm-internal]
+    depends_on: [ollama]
+
+  # ---------------------------------------------------------------------
+  # Sister repos
+  # ---------------------------------------------------------------------
+  clawrails:
+    image: ghcr.io/jimmershere/clawrails:${CLAWRAILS_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      RAILS_PORT: 4180
+      RAILS_DB: postgresql://clawfirm:${POSTGRES_PASSWORD}@postgres:5432/clawrails
+      RAILS_JUDGE_URL: http://policy-judge:8080
+      RAILS_CLAWSECURE_URL: http://clawsecure:3188
+      RAILS_OLLAMA_URL: http://ollama:11434
+      RAILS_FRONTIER_DENY_BY_DEFAULT: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://langfuse:3000/api/public/otel
+    volumes:
+      - ../../integrations/clawrails/config:/etc/clawrails:ro
+    ports: ["127.0.0.1:4180:4180"]
+    networks: [clawfirm-internal]
+    depends_on: [postgres, policy-judge, ollama]
+
+  clawsecure:
+    image: ghcr.io/jimmershere/clawsecure:${CLAWSECURE_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      PORT: 3188
+      CLAWSECURE_DB: /var/lib/clawsecure/clawsecure.db
+      CLAWSECURE_HASH_CHAIN: "true"
+    volumes:
+      - clawsecure-data:/var/lib/clawsecure
+      - ../../integrations/clawsecure/presets:/etc/clawsecure/presets:ro
+    ports: ["127.0.0.1:3188:3188"]
+    networks: [clawfirm-internal]
+
+  # ---------------------------------------------------------------------
+  # Inference
+  # ---------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:0.6
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_NUM_PARALLEL: 2
+      OLLAMA_MAX_LOADED_MODELS: 3
+    volumes:
+      - ollama-models:/root/.ollama
+    ports: ["127.0.0.1:11434:11434"]
+    networks: [clawfirm-internal]
+    # NVIDIA GPU support: see docker-compose.gpu.yml override.
+
+  # ---------------------------------------------------------------------
+  # Engines (data plane)
+  # ---------------------------------------------------------------------
+  dify-api:
+    image: langgenius/dify-api:1.4
+    restart: unless-stopped
+    environment:
+      MODE: api
+      DB_HOST: postgres
+      DB_USERNAME: clawfirm
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_DATABASE: dify
+      REDIS_HOST: redis
+      VECTOR_STORE: pgvector
+      PGVECTOR_HOST: postgres
+      PGVECTOR_DATABASE: dify_vec
+      PGVECTOR_USER: clawfirm
+      PGVECTOR_PASSWORD: ${POSTGRES_PASSWORD}
+      OPENAI_API_BASE: http://clawrails:4180/v1
+      CODE_EXECUTION_ENDPOINT: http://dify-sandbox:8194
+    volumes:
+      - dify-storage:/app/api/storage
+    networks: [clawfirm-internal]
+    depends_on: [postgres, redis, clawrails, dify-sandbox]
+
+  dify-web:
+    image: langgenius/dify-web:1.4
+    restart: unless-stopped
+    environment:
+      CONSOLE_API_URL: ""
+      APP_API_URL: ""
+    ports: ["127.0.0.1:5001:3000"]
+    networks: [clawfirm-internal]
+    depends_on: [dify-api]
+
+  dify-sandbox:
+    image: langgenius/dify-sandbox:0.2
+    restart: unless-stopped
+    environment:
+      API_KEY: ${DIFY_SANDBOX_API_KEY}
+      GIN_MODE: release
+      WORKER_TIMEOUT: 15
+      ENABLE_NETWORK: "false"
+    networks: [clawfirm-internal]
+    # Note: this is the language-aware sandbox for Dify code nodes.
+    # Arbitrary tool execution at SMB+ tiers also runs through gVisor/Firecracker.
+
+  n8n:
+    image: n8nio/n8n:1.x
+    restart: unless-stopped
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_USER: clawfirm
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_DATABASE: n8n
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_USER_MANAGEMENT_JWT_SECRET: ${N8N_JWT_SECRET}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_HIRING_BANNER_ENABLED: "false"
+      N8N_PROXY_HOPS: 1
+      N8N_RUNNERS_ENABLED: "true"
+      EXTERNAL_HOOK_FILES: /etc/n8n/hooks/clawsecure-emit.js
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ../../integrations/clawsecure/enforcement/hook-template.js:/etc/n8n/hooks/clawsecure-emit.js:ro
+    ports: ["127.0.0.1:5678:5678"]
+    networks: [clawfirm-internal]
+    depends_on: [postgres]
+
+  langgraph:
+    image: langchain/langgraph-server:1.1
+    restart: unless-stopped
+    environment:
+      DATABASE_URI: postgresql://clawfirm:${POSTGRES_PASSWORD}@postgres:5432/langgraph
+      REDIS_URI: redis://redis:6379
+      LANGGRAPH_MODEL_BASE_URL: http://clawrails:4180/v1
+      LANGGRAPH_OTEL_ENDPOINT: http://langfuse:3000/api/public/otel
+    networks: [clawfirm-internal]
+    depends_on: [postgres, redis, clawrails]
+
+  openhands:
+    image: ghcr.io/openhands/openhands:1.x
+    restart: unless-stopped
+    environment:
+      OPENHANDS_LLM_BASE_URL: http://clawrails:4180/v1
+      OPENHANDS_WORKSPACE: docker
+      OPENHANDS_CONFIRMATION_POLICY: confirm-on-action
+      OPENHANDS_APPROVAL_BACKEND: grpc://approval-shim:50051
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [clawfirm-internal]
+    depends_on: [clawrails, approval-shim]
+
+  # ---------------------------------------------------------------------
+  # Shell — the OpenClaw/EdgeClaw assistant front end
+  # ---------------------------------------------------------------------
+  edgeclaw:
+    image: ghcr.io/openbmb/edgeclaw:2.0
+    restart: unless-stopped
+    environment:
+      EDGECLAW_BIND: 0.0.0.0:7878
+      EDGECLAW_MODEL_BASE_URL: http://clawrails:4180/v1
+      EDGECLAW_MEMORY_URL: http://memory-service:50053
+      EDGECLAW_MCP_GATEWAY: https://mcp-gateway:8443
+      EDGECLAW_APPROVAL_BACKEND: grpc://approval-shim:50051
+      EDGECLAW_TIER: 0   # chat-only at first launch
+      EDGECLAW_CHANNELS_ENABLED: "false"
+      EDGECLAW_SKILL_REGISTRY: file:///etc/edgeclaw/skills/registry
+    volumes:
+      - ../../skills/registry:/etc/edgeclaw/skills/registry:ro
+    ports: ["127.0.0.1:7878:7878"]
+    networks: [clawfirm-internal]
+    depends_on: [clawrails, memory-service, mcp-gateway, approval-shim]
+
+  # ---------------------------------------------------------------------
+  # Ingress
+  # ---------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [clawfirm-internal]
+    depends_on: [edgeclaw]
+
+volumes:
+  caddy-data:
+  caddy-config:

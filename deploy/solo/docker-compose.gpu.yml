@@ -1,0 +1,47 @@
+# NVIDIA GPU override for the Solo tier.
+# Apply with:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  vllm:
+    image: vllm/vllm-openai:0.17
+    restart: unless-stopped
+    environment:
+      VLLM_LOGGING_LEVEL: INFO
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN:-}
+    command:
+      - "--model"
+      - "${VLLM_MODEL:-Qwen/Qwen3.6-27B-Instruct}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+      - "--tensor-parallel-size"
+      - "${VLLM_TP:-1}"
+      - "--gpu-memory-utilization"
+      - "0.85"
+      - "--max-model-len"
+      - "32768"
+    volumes:
+      - vllm-models:/root/.cache/huggingface
+    ports: ["127.0.0.1:8000:8000"]
+    networks: [clawfirm-internal]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  vllm-models:

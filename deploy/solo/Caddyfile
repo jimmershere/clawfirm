@@ -1,0 +1,50 @@
+# ClawFirm Solo - Caddy ingress.
+#
+# By default, Caddy is bound to 127.0.0.1 and serves a self-signed cert.
+# `clawfirm net enable --provider tailscale` switches to TLS via Tailscale Serve.
+
+{
+  admin off
+  auto_https off
+}
+
+http://localhost {
+  redir https://localhost{uri}
+}
+
+https://localhost {
+  tls internal
+
+  # Default route - the assistant shell
+  reverse_proxy edgeclaw:7878
+
+  # /dify - low-code agent builder
+  handle_path /dify/* {
+    reverse_proxy dify-web:3000
+  }
+
+  # /n8n - workflow engine
+  handle_path /n8n/* {
+    reverse_proxy n8n:5678
+  }
+
+  # /langfuse - observability
+  handle_path /langfuse/* {
+    reverse_proxy langfuse:3000
+  }
+
+  # /security - ClawSecure dashboard
+  handle_path /security/* {
+    reverse_proxy clawsecure:3188
+  }
+
+  # /auth - Authentik
+  handle_path /auth/* {
+    reverse_proxy authentik-server:9000
+  }
+
+  # /vault - OpenBao UI
+  handle_path /vault/* {
+    reverse_proxy openbao:8200
+  }
+}

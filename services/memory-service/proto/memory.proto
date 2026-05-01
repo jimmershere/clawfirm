@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package clawfirm.memory.v1;
+
+option go_package = "github.com/jimmershere/clawfirm/services/memory-service/gen/memory";
+
+service MemoryService {
+  rpc Append(AppendRequest) returns (AppendReply);
+  rpc Recall(RecallRequest) returns (RecallReply);
+  rpc Forget(ForgetRequest) returns (ForgetReply);
+  rpc Snapshot(SnapshotRequest) returns (SnapshotReply);
+}
+
+enum Scope {
+  SCOPE_UNSPECIFIED = 0;
+  SCOPE_PUBLIC = 1;
+  SCOPE_TENANT = 2;
+  SCOPE_USER = 3;
+  SCOPE_SESSION = 4;
+  SCOPE_SECRET = 5;
+}
+
+message AppendRequest {
+  string user = 1;
+  Scope scope = 2;
+  bytes payload = 3;          // JSON-encoded
+  repeated string tags = 4;
+}
+
+message AppendReply {
+  string event_id = 1;
+  string hash = 2;
+  string prev_hash = 3;
+}
+
+message RecallRequest {
+  string user = 1;
+  string query = 2;
+  int32 top_k = 3;
+  Scope scope_filter = 4;
+}
+
+message RecallReply {
+  message Hit {
+    string event_id = 1;
+    bytes payload = 2;
+    float score = 3;
+  }
+  repeated Hit hits = 1;
+}
+
+message ForgetRequest { string event_id = 1; bool hard = 2; }
+message ForgetReply   { bool ok = 1; }
+
+message SnapshotRequest { string user = 1; }
+message SnapshotReply   { bytes export = 1; }
