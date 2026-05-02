@@ -1,10 +1,16 @@
 # ClawFirm
 
+<p align="center">
+  <img src="https://i.imgur.com/0EQQkRU.png" alt="TCF-Bot — ClawFirm Mascot" width="240" />
+</p>
+
+<p align="center"><strong>Meet TCF-Bot.</strong> Your AI infrastructure guardian.</p>
+
 [![CI](https://img.shields.io/github/actions/workflow/status/jimmershere/clawfirm/ci.yml?branch=main&label=build)](https://github.com/jimmershere/clawfirm/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](./ROADMAP.md)
 
-**The AI platform that doesn't get you hacked. One install. Three tiers. Zero trust from day one.**
+**The AI platform that does not get you hacked. One install. Three tiers. Zero trust from day one.**
 
 ClawFirm is the secure-by-default AI factory in a box for builders who want self-hosted agents, local inference, and governance that starts locked down instead of wide open.
 
@@ -141,3 +147,10 @@ ClawFirm itself is MIT-licensed (matching ClawRails, ClawBoot, ClawSecure). Bund
 ## Status
 
 **Alpha.** Solo tier installs and boots end-to-end. SMB and Enterprise tiers track the [90-day roadmap](./ROADMAP.md). Looking for design partners — open an issue on any of the four repos.
+
+---
+
+<p align="center">
+  <img src="https://i.imgur.com/0EQQkRU.png" alt="TCF-Bot" width="120" />
+  <br><em>TCF-Bot watches over your stack so you don't have to.</em>
+</p>
