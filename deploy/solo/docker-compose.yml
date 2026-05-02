@@ -122,7 +122,7 @@ services:
   # ClawFirm services (this repo)
   # ---------------------------------------------------------------------
   mcp-gateway:
-    image: ghcr.io/jimmershere/mcp-gateway:${CLAWFIRM_VERSION:-latest}
+    image: ghcr.io/theclawfirm/mcp-gateway:${CLAWFIRM_VERSION:-latest}
     restart: unless-stopped
     environment:
       MCP_GW_LISTEN: ":8443"
@@ -136,7 +136,7 @@ services:
     depends_on: [authentik-server]
 
   memory-service:
-    image: ghcr.io/jimmershere/memory-service:${CLAWFIRM_VERSION:-latest}
+    image: ghcr.io/theclawfirm/memory-service:${CLAWFIRM_VERSION:-latest}
     restart: unless-stopped
     environment:
       MEMORY_STORE: pgvector
@@ -149,7 +149,7 @@ services:
     depends_on: [postgres]
 
   approval-shim:
-    image: ghcr.io/jimmershere/approval-shim:${CLAWFIRM_VERSION:-latest}
+    image: ghcr.io/theclawfirm/approval-shim:${CLAWFIRM_VERSION:-latest}
     restart: unless-stopped
     environment:
       SHIM_LISTEN: ":50051"
@@ -158,7 +158,7 @@ services:
     depends_on: [clawsecure]
 
   policy-judge:
-    image: ghcr.io/jimmershere/policy-judge:${CLAWFIRM_VERSION:-latest}
+    image: ghcr.io/theclawfirm/policy-judge:${CLAWFIRM_VERSION:-latest}
     restart: unless-stopped
     environment:
       JUDGE_MODEL: qwen3.5-4b
@@ -172,7 +172,7 @@ services:
   # Sister repos
   # ---------------------------------------------------------------------
   clawrails:
-    image: ghcr.io/jimmershere/clawrails:${CLAWRAILS_VERSION:-latest}
+    image: ghcr.io/theclawfirm/clawrails:${CLAWRAILS_VERSION:-latest}
     restart: unless-stopped
     environment:
       RAILS_PORT: 4180
@@ -189,7 +189,7 @@ services:
     depends_on: [postgres, policy-judge, ollama]
 
   clawsecure:
-    image: ghcr.io/jimmershere/clawsecure:${CLAWSECURE_VERSION:-latest}
+    image: ghcr.io/theclawfirm/clawsecure:${CLAWSECURE_VERSION:-latest}
     restart: unless-stopped
     environment:
       PORT: 3188
